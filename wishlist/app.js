@@ -165,6 +165,26 @@ async function run(fn) {
   }
 }
 
+// In-page replacement for confirm()/prompt(), which some embedded viewers block.
+// Resolves to true/false, or to the typed text when `input` is given (null on cancel).
+function ask({ title, input, ok = "OK" }) {
+  const d = $("#ask-dialog");
+  const field = $("#ask-input");
+  $("#ask-title").textContent = title;
+  $("#ask-ok").textContent = ok;
+  field.hidden = input === undefined;
+  field.value = input ?? "";
+  d.returnValue = "";
+  d.showModal();
+  if (!field.hidden) field.select();
+  return new Promise((resolve) => {
+    d.addEventListener("close", () => {
+      const yes = d.returnValue === "ok";
+      resolve(input === undefined ? yes : yes ? field.value : null);
+    }, { once: true });
+  });
+}
+
 function openItemDialog(listId, itemId) {
   editing = { listId, itemId };
   const f = $("#item-form");
@@ -191,15 +211,17 @@ document.addEventListener("click", (e) => {
     case "add-item": return openItemDialog(list);
     case "edit-item": return openItemDialog(list, item);
     case "delete-item":
-      if (confirm(`Remove "${state.items[item]?.title}"?`)) run(() => store.deleteItem(item));
+      ask({ title: `Remove "${state.items[item]?.title}"?`, ok: "Remove" })
+        .then((yes) => yes && run(() => store.deleteItem(item)));
       return;
     case "rename-list": {
-      const t = prompt("List name", state.lists[list]?.title);
-      if (t && t.trim()) run(() => store.updateList(list, { title: t.trim() }));
+      ask({ title: "Rename list", input: state.lists[list]?.title, ok: "Save" })
+        .then((t) => t && t.trim() && run(() => store.updateList(list, { title: t.trim() })));
       return;
     }
     case "delete-list":
-      if (confirm(`Delete "${state.lists[list]?.title}" and all its gifts?`)) run(() => store.deleteList(list));
+      ask({ title: `Delete "${state.lists[list]?.title}" and all its gifts?`, ok: "Delete list" })
+        .then((yes) => yes && run(() => store.deleteList(list)));
       return;
     case "claim": return run(async () => { await store.claim(item, me); toast("It's yours to gift 🎉"); });
     case "unclaim": return run(() => store.unclaim(item, me));

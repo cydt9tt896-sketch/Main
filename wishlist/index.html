@@ -54,6 +54,17 @@
     </form>
   </dialog>
 
+  <dialog id="ask-dialog">
+    <form method="dialog">
+      <h3 id="ask-title"></h3>
+      <input id="ask-input" maxlength="60" hidden />
+      <div class="row end">
+        <button value="cancel" class="secondary" formnovalidate>Cancel</button>
+        <button value="ok" id="ask-ok">OK</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" hidden></div>
 
   <script type="module" src="app.js"></script>
