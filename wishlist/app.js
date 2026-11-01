@@ -215,6 +215,20 @@ function resizeImage(file, max = 480) {
   });
 }
 
+// Look up a product photo from a shop link with Microlink's free link-preview
+// API (no key needed, about 50 lookups a day). Returns "" when nothing is
+// found, or null when the lookup couldn't run (offline, blocked, quota).
+async function findImageForLink(link) {
+  if (!safeUrl(link)) return "";
+  try {
+    const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(link)}`);
+    if (res.status === 429) return null; // daily free quota used up
+    const json = await res.json();
+    const img = json?.data?.image?.url || json?.data?.logo?.url || "";
+    return /^https:\/\//i.test(img) ? img : "";
+  } catch { return null; }
+}
+
 let pendingImage = ""; // picture shown in the gift dialog
 function showDialogImage(src) {
   pendingImage = src || "";
@@ -240,10 +254,23 @@ function openItemDialog(listId, itemId) {
 }
 
 document.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-action], .tab, #switch-user, #item-cancel, #photo-remove");
+  const btn = e.target.closest("[data-action], .tab, #switch-user, #item-cancel, #photo-remove, #photo-find");
   if (!btn) return;
   if (btn.classList.contains("tab")) { view = btn.dataset.view; return render(); }
   if (btn.id === "switch-user") { me = null; safeSet(ME_KEY, null); return render(); }
+  if (btn.id === "photo-find") {
+    const f = $("#item-form");
+    btn.disabled = true;
+    btn.textContent = "Looking…";
+    findImageForLink(f.elements.link.value.trim()).then((img) => {
+      btn.disabled = false;
+      btn.textContent = "Find picture from link";
+      if (img) { showDialogImage(img); f.elements.imageUrl.value = img; }
+      else if (img === null) toast("Couldn't look up pictures right now. Try uploading a screenshot.");
+      else toast("No picture found for that link. Try uploading a screenshot.");
+    });
+    return;
+  }
   if (btn.id === "photo-remove") {
     showDialogImage("");
     $("#item-form").elements.photo.value = "";
@@ -324,7 +351,14 @@ document.addEventListener("submit", (e) => {
     $("#item-dialog").close();
     editing = null;
     if (!data.title || !listId) return;
-    run(() => (itemId ? store.updateItem(itemId, data) : store.addItem(listId, data)));
+    run(async () => {
+      const id = itemId || (await store.addItem(listId, data));
+      if (itemId) await store.updateItem(itemId, data);
+      if (!data.image && data.link) {
+        const img = await findImageForLink(data.link);
+        if (img && state.items[id] && !state.items[id].image) await store.updateItem(id, { image: img });
+      }
+    });
   }
 });
 
@@ -343,4 +377,17 @@ document.addEventListener("submit", (e) => {
     b.innerHTML = `<strong>Demo mode:</strong> data lives in this browser only. Open this page in a second tab, pick a different name, and watch claims update live. Connect Firebase in <code>config.js</code> to share with family.`;
   }
   store.subscribe((s) => { state = s; render(); });
+  fillMissingPictures();
 })();
+
+// Once per visit, look up pictures for gifts that have a shop link but no
+// picture yet. A gift is only tried once (imageTried), so this stays cheap.
+async function fillMissingPictures() {
+  const todo = Object.entries(state.items).filter(([, it]) => it.link && !it.image && !it.imageTried).slice(0, 20);
+  for (const [id] of todo) {
+    const img = await findImageForLink(state.items[id]?.link);
+    if (img === null) return; // offline or blocked: try again next visit
+    const it = state.items[id];
+    if (it && !it.image) await store.updateItem(id, img ? { image: img } : { imageTried: true }).catch(() => {});
+  }
+}
