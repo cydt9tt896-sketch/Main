@@ -21,7 +21,7 @@ python3 -m http.server 8000
 
 Out of the box `config.js` has `FIREBASE_CONFIG = null`, so data is stored in your browser only.
 It still syncs live between tabs, which is enough to see how it feels. The first run seeds
-**Simon's birthday** list with placeholder gifts you can edit or remove.
+**Simon's birthday** list (14 gifts, links to each brand's shop, rough EUR prices) that you can edit in the app.
 
 ## Share it with the family (free)
 
@@ -30,7 +30,7 @@ It still syncs live between tabs, which is enough to see how it feels. The first
 3. **Rules** tab: paste the contents of `firestore.rules` and publish.
 4. **Project settings → Your apps → Web app (</>)**: register an app and copy the `firebaseConfig`.
 5. Paste it into `config.js` as `FIREBASE_CONFIG`, and change `FAMILY_ID` to something hard to guess
-   (e.g. `cerruti-xmas-7f3k`). Set `CURRENCY` if you don't use USD.
+   (e.g. `cerruti-xmas-7f3k`). Set `CURRENCY` if you don't use EUR.
 6. Host the `wishlist/` folder on GitHub Pages, Netlify or Firebase Hosting and send the link around.
 
 ## Notes and limits of the prototype

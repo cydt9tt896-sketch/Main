@@ -20,17 +20,28 @@ export const FIREBASE_CONFIG = null;
 export const FAMILY_ID = "family";
 
 // Currency used to display prices.
-export const CURRENCY = "USD";
+export const CURRENCY = "EUR";
 
 // Seeded on first run when there are no lists yet. Edit freely in the app.
 export const SEED = {
   owner: "Simon",
   list: { title: "Simon's birthday", occasion: "Birthday" },
+  // Prices are rough estimates in EUR. Links go to the brand's shop so the
+  // giver can pick the exact model, size and colour.
   items: [
-    { title: "Placeholder: wireless earbuds", link: "https://example.com/earbuds", price: 129, notes: "Any colour" },
-    { title: "Placeholder: a good cookbook", link: "https://example.com/cookbook", price: 35, notes: "" },
-    { title: "Placeholder: running shoes", link: "https://example.com/shoes", price: 110, notes: "Size 43" },
-    { title: "Placeholder: board game", link: "https://example.com/boardgame", price: 45, notes: "" },
-    { title: "Placeholder: coffee subscription", link: "https://example.com/coffee", price: 60, notes: "3 months" },
+    { title: "Golf outfit: long-sleeve polo + pants (technical fabric, hot climate)", link: "https://shop.lululemon.com/search?Ntt=golf", price: 220, notes: "Lululemon or equivalent" },
+    { title: "Laptop to run Claude to its full potential", link: "https://www.apple.com/fr/macbook-pro/", price: 2400, notes: "e.g. MacBook Pro 14\"" },
+    { title: "Apple Pencil", link: "https://www.apple.com/fr/apple-pencil/", price: 149, notes: "" },
+    { title: "Horace fragrance", link: "https://www.horace.co/", price: 45, notes: "" },
+    { title: "Horace skincare products", link: "https://www.horace.co/", price: 40, notes: "" },
+    { title: "Gustavo Fayet exhibition catalogue, Fondation Louis Vuitton (French edition)", link: "https://www.fondationlouisvuitton.fr/", price: 49, notes: "In French" },
+    { title: "On or Nike sneakers", link: "https://www.on.com/", price: 160, notes: "" },
+    { title: "Paraboot shoes", link: "https://www.paraboot.com/", price: 430, notes: "" },
+    { title: "R.M. Williams boots", link: "https://www.rmwilliams.com/", price: 550, notes: "" },
+    { title: "Sebago loafers", link: "https://www.sebago.com/", price: 150, notes: "" },
+    { title: "Lululemon travel outfit", link: "https://shop.lululemon.com/", price: 230, notes: "" },
+    { title: "Monocle Thailand handbook", link: "https://monocle.com/shop/", price: 25, notes: "" },
+    { title: "Apple Watch", link: "https://www.apple.com/fr/watch/", price: 449, notes: "" },
+    { title: "WHOOP membership", link: "https://www.whoop.com/", price: 239, notes: "12 months" },
   ],
 };
