@@ -21,7 +21,7 @@ python3 -m http.server 8000
 
 Out of the box `config.js` has `FIREBASE_CONFIG = null`, so data is stored in your browser only.
 It still syncs live between tabs, which is enough to see how it feels. The first run seeds
-**Simon's birthday** list (14 gifts, links to each brand's shop, rough EUR prices) that you can edit in the app.
+**Simon's birthday** list (16 gifts, links to each brand's shop, rough EUR prices) that you can edit in the app.
 
 ## Share it with the family (free)
 
