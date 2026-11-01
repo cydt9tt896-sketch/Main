@@ -1,0 +1,11 @@
+rules_version = '2';
+// Prototype rules: anyone with the site URL and the family id can read and
+// write that family's lists. Good enough for a family prototype; add Firebase
+// Auth before sharing the URL widely.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /families/{familyId}/{collection}/{docId} {
+      allow read, write: if collection in ['members', 'lists', 'items', 'claims'];
+    }
+  }
+}
