@@ -43,5 +43,7 @@ export const SEED = {
     { title: "Monocle Thailand handbook", link: "https://monocle.com/shop/", price: 25, notes: "" },
     { title: "Apple Watch", link: "https://www.apple.com/fr/watch/", price: 449, notes: "" },
     { title: "WHOOP membership", link: "https://www.whoop.com/", price: 239, notes: "12 months" },
+    { title: "Le conflit israélo-palestinien en 100 questions (book)", link: "https://www.fnac.com/SearchResult/ResultList.aspx?Search=le+conflit+isra%C3%A9lo-palestinien+en+100+questions", price: 16, notes: "Tallandier, French" },
+    { title: "La Chine en 100 questions (book)", link: "https://www.fnac.com/SearchResult/ResultList.aspx?Search=la+chine+en+100+questions", price: 16, notes: "Tallandier, French" },
   ],
 };
