@@ -240,26 +240,137 @@ function resizeImage(file, max = 480) {
   });
 }
 
-// Look up a product photo from a shop link with Microlink's free link-preview
-// API (no key needed, about 50 lookups a day). Returns "" when nothing is
-// found, or null when the lookup couldn't run (offline, blocked, quota).
-async function findImageForLink(link) {
-  if (!safeUrl(link)) return "";
+// Read a shop's product page through Microlink's free link-preview API (no
+// key, about 50 lookups a day): its main picture, its name and, when the shop
+// publishes it, its price. Returns null when the lookup couldn't run
+// (offline, blocked, quota), or an object whose fields may be empty.
+const MICROLINK_RULES = [
+  ["jsonld", 'script[type="application/ld+json"]', "html", true],
+  ["ogprice", 'meta[property="product:price:amount"]', "content"],
+  ["ogprice2", 'meta[property="og:price:amount"]', "content"],
+  ["itemprice", '[itemprop="price"]', "content"],
+  ["itempricetext", '[itemprop="price"]', "text"],
+];
+function microlinkUrl(link) {
+  const q = new URLSearchParams({ url: link });
+  for (const [key, selector, attr, all] of MICROLINK_RULES) {
+    q.set(`data.${key}.${all ? "selectorAll" : "selector"}`, selector);
+    q.set(`data.${key}.attr`, attr);
+  }
+  return `https://api.microlink.io/?${q}`;
+}
+
+// "1 299,00 €" → 1299, "149.99" → 149.99, "1,299.00" → 1299
+function parsePrice(v) {
+  if (v == null) return null;
+  if (typeof v === "number") return v > 0 ? v : null;
+  let t = String(v).replace(/[^\d.,]/g, "");
+  if (!t) return null;
+  const lastComma = t.lastIndexOf(","), lastDot = t.lastIndexOf(".");
+  const dec = Math.max(lastComma, lastDot);
+  if (dec >= 0 && t.length - dec - 1 <= 2) {
+    t = t.slice(0, dec).replace(/[.,]/g, "") + "." + t.slice(dec + 1);
+  } else {
+    t = t.replace(/[.,]/g, "");
+  }
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+}
+
+// Find a Product in the page's structured data (schema.org JSON-LD).
+function productFromJsonLd(blocks) {
+  const found = { price: null, image: "", name: "" };
+  const visit = (node) => {
+    if (!node || typeof node !== "object" || (found.price && found.image)) return;
+    if (Array.isArray(node)) return node.forEach(visit);
+    const type = [].concat(node["@type"] || []).join(" ");
+    if (/Product/i.test(type)) {
+      const offers = [].concat(node.offers || []);
+      for (const o of offers) {
+        const p = parsePrice(o?.price ?? o?.lowPrice ?? o?.priceSpecification?.price);
+        if (p && !found.price) found.price = p;
+      }
+      const img = [].concat(node.image || [])[0];
+      const imgUrl = typeof img === "string" ? img : img?.url || img?.contentUrl;
+      if (!found.image && /^https:\/\//i.test(imgUrl || "")) found.image = imgUrl;
+      if (!found.name && typeof node.name === "string") found.name = node.name;
+    }
+    Object.values(node).forEach((v) => typeof v === "object" && visit(v));
+  };
+  for (const raw of [].concat(blocks || [])) {
+    try { visit(JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw))); } catch { /* skip bad block */ }
+  }
+  return found;
+}
+
+async function fetchLinkInfo(link) {
+  if (!safeUrl(link)) return { image: "", price: null, title: "" };
   try {
-    const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(link)}`);
+    const res = await fetch(microlinkUrl(link));
     if (res.status === 429) return null; // daily free quota used up
     const json = await res.json();
-    const img = json?.data?.image?.url || json?.data?.logo?.url || "";
-    return /^https:\/\//i.test(img) ? img : "";
+    const d = json?.data || {};
+    const ld = productFromJsonLd(d.jsonld);
+    const price = ld.price ?? parsePrice(d.ogprice) ?? parsePrice(d.ogprice2) ?? parsePrice(d.itemprice) ?? parsePrice(d.itempricetext);
+    const image = ld.image || d.image?.url || d.logo?.url || "";
+    const title = (ld.name || d.title || "").trim();
+    return { image: /^https:\/\//i.test(image) ? image : "", price, title };
   } catch { return null; }
 }
 
+async function findImageForLink(link) {
+  const info = await fetchLinkInfo(link);
+  return info === null ? null : info.image;
+}
+
 let pendingImage = ""; // picture shown in the gift dialog
+let imageRemoved = false; // the person removed the picture on purpose
 function showDialogImage(src) {
   pendingImage = src || "";
   const prev = $("#photo-preview");
   prev.hidden = !pendingImage;
   if (pendingImage) prev.querySelector("img").src = pendingImage;
+}
+
+function setFillStatus(msg) {
+  const el = $("#fill-status");
+  if (el) { el.textContent = msg; el.hidden = !msg; }
+}
+
+// Fill the gift form from its shop link: picture, price and name.
+// Only empty fields are filled, unless the person asked explicitly (force).
+let fillSeq = 0;
+async function fillFromLink({ force = false } = {}) {
+  const f = $("#item-form");
+  const link = f.elements.link.value.trim();
+  if (!safeUrl(link)) {
+    if (force) toast("Colle d'abord le lien de la page du produit.");
+    return;
+  }
+  const seq = ++fillSeq;
+  const btn = $("#photo-find");
+  btn.disabled = true;
+  setFillStatus("🔎 Les lutins lisent la page du produit…");
+  const info = await fetchLinkInfo(link);
+  if (seq !== fillSeq) return; // a newer lookup started
+  btn.disabled = false;
+  if (!info) {
+    setFillStatus("Impossible de lire cette page pour l'instant. Ajoute la photo et le prix à la main.");
+    return;
+  }
+  const got = [];
+  if (info.image && (force || (!pendingImage && !imageRemoved))) {
+    showDialogImage(info.image); imageRemoved = false; got.push("la photo");
+  }
+  if (info.price && (force || f.elements.price.value === "")) {
+    f.elements.price.value = info.price; got.push("le prix");
+  }
+  if (info.title && !f.elements.title.value.trim()) {
+    f.elements.title.value = info.title.slice(0, 120); got.push("le nom");
+  }
+  setFillStatus(got.length
+    ? `✨ Trouvé : ${got.join(", ")}. Vérifie avant d'enregistrer.`
+    : "Cette boutique ne partage pas ses infos. Ajoute la photo et le prix à la main.");
 }
 
 function openItemDialog(listId, itemId) {
@@ -273,9 +384,11 @@ function openItemDialog(listId, itemId) {
   f.elements.photo.value = "";
   f.elements.imageUrl.value = it.image && !it.image.startsWith("data:") ? it.image : "";
   showDialogImage(it.image);
+  imageRemoved = false;
+  setFillStatus("");
   $("#item-dialog-title").textContent = itemId ? "Modifier le cadeau" : "Ajouter un cadeau";
   $("#item-dialog").showModal();
-  f.elements.title.focus();
+  (itemId ? f.elements.title : f.elements.link).focus();
 }
 
 document.addEventListener("click", (e) => {
@@ -284,19 +397,11 @@ document.addEventListener("click", (e) => {
   if (btn.classList.contains("tab")) { view = btn.dataset.view; return render(); }
   if (btn.id === "switch-user") { me = null; safeSet(ME_KEY, null); return render(); }
   if (btn.id === "photo-find") {
-    const f = $("#item-form");
-    btn.disabled = true;
-    btn.textContent = "Recherche…";
-    findImageForLink(f.elements.link.value.trim()).then((img) => {
-      btn.disabled = false;
-      btn.textContent = "Trouver la photo depuis le lien";
-      if (img) { showDialogImage(img); f.elements.imageUrl.value = img; }
-      else if (img === null) toast("Impossible de chercher une photo pour l'instant. Envoie plutôt une capture d'écran.");
-      else toast("Aucune photo trouvée pour ce lien. Envoie plutôt une capture d'écran.");
-    });
+    fillFromLink({ force: true });
     return;
   }
   if (btn.id === "photo-remove") {
+    imageRemoved = true;
     showDialogImage("");
     $("#item-form").elements.photo.value = "";
     $("#item-form").elements.imageUrl.value = "";
@@ -340,7 +445,13 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// Pasting a shop link fills the form straight away.
+document.addEventListener("paste", (e) => {
+  if (e.target.name === "link" && e.target.form?.id === "item-form") setTimeout(() => fillFromLink(), 0);
+});
+
 document.addEventListener("change", async (e) => {
+  if (e.target.name === "link" && e.target.form?.id === "item-form") { fillFromLink(); return; }
   if (e.target.name === "photo" && e.target.files?.[0]) {
     try {
       showDialogImage(await resizeImage(e.target.files[0]));
@@ -384,6 +495,7 @@ document.addEventListener("submit", (e) => {
       price: f.elements.price.value === "" ? "" : Number(f.elements.price.value),
       notes: f.elements.notes.value.trim(),
       image: safeImg(pendingImage),
+      ...(imageRemoved && !pendingImage ? { imageTried: true } : {}),
     };
     const { listId, itemId } = editing || {};
     $("#item-dialog").close();
@@ -392,7 +504,7 @@ document.addEventListener("submit", (e) => {
     run(async () => {
       const id = itemId || (await store.addItem(listId, data));
       if (itemId) await store.updateItem(itemId, data);
-      if (!data.image && data.link) {
+      if (!data.image && data.link && !data.imageTried) {
         const img = await findImageForLink(data.link);
         if (img && state.items[id] && !state.items[id].image) await store.updateItem(id, { image: img });
       }
