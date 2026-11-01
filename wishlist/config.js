@@ -7,7 +7,14 @@
 //
 // To share with the family for real, create a free Firebase project, enable
 // Firestore, and paste the web app config here (see README.md).
-export const FIREBASE_CONFIG = null;
+export const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCsTbnp654H1eTXuTDuWFBpsDh8IlZ0xRM",
+  authDomain: "family-wishlist-f6a65.firebaseapp.com",
+  projectId: "family-wishlist-f6a65",
+  storageBucket: "family-wishlist-f6a65.firebasestorage.app",
+  messagingSenderId: "61522857465",
+  appId: "1:61522857465:web:919f7402fc6871e4490128",
+};
 // export const FIREBASE_CONFIG = {
 //   apiKey: "…",
 //   authDomain: "your-project.firebaseapp.com",
