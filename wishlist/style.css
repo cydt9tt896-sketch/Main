@@ -139,3 +139,43 @@ dialog h3 { margin-top: 0; }
   background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 8px;
   box-shadow: 0 4px 16px rgb(0 0 0 / .2); max-width: calc(100vw - 32px);
 }
+
+/* ---- Christmas touches ---------------------------------------------- */
+:root { --pine: #14532d; --pine-text: #f0fdf4; --gold: #b45309; --story-bg: #fdf6e3; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --pine: #166534; --pine-text: #f0fdf4; --gold: #fbbf24; --story-bg: #26231c; }
+}
+:root[data-theme="dark"] { --pine: #166534; --pine-text: #f0fdf4; --gold: #fbbf24; --story-bg: #26231c; }
+
+.brand { min-width: 0; }
+.tagline { margin: 2px 0 0; font-size: .85rem; color: var(--muted); font-style: italic; }
+
+.story {
+  max-width: 820px; margin: 0 auto 16px; background: var(--story-bg);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px;
+}
+.story summary { cursor: pointer; font-weight: 600; color: var(--text); list-style-position: inside; }
+.story summary .muted { font-weight: 400; font-size: .85rem; margin-left: 4px; }
+.story-intro { margin: 10px 0 8px; font-style: italic; max-width: 65ch; }
+.story-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.story-steps li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: start; }
+.step-ico { font-size: 1.2rem; line-height: 1.4; }
+.story-steps strong { color: var(--gold); }
+
+/* Big, obvious reserve button with instant feedback */
+.claim-btn { min-height: 40px; padding: 8px 16px; font-weight: 600; touch-action: manipulation; }
+.claim-btn:active { transform: scale(.97); }
+.claim-btn[disabled] { opacity: .8; cursor: progress; }
+.spinner {
+  display: inline-block; width: .9em; height: .9em; vertical-align: -0.1em;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+button { touch-action: manipulation; }
+.tab.active { background: var(--pine); color: var(--pine-text); }
+@media (max-width: 480px) {
+  .tabs { gap: 2px; }
+  .tab { padding: 8px 10px; font-size: .9rem; }
+}

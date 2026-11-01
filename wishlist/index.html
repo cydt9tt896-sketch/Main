@@ -1,38 +1,60 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Family Wishlists</title>
+  <title>Listes de Noël de la famille</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="topbar">
-    <h1>🎁 Family Wishlists</h1>
+    <div class="brand">
+      <h1>🎄 Les listes de Noël</h1>
+      <p class="tagline">L'atelier des lutins de la famille</p>
+    </div>
     <div id="whoami" class="whoami" hidden>
-      <span>Signed in as <strong id="whoami-name"></strong></span>
-      <button id="switch-user" class="link">Switch</button>
+      <span>Lutin <strong id="whoami-name"></strong></span>
+      <button id="switch-user" class="link">Changer</button>
     </div>
   </header>
 
   <div id="mode-banner" class="banner" hidden></div>
 
+  <!-- The story: how the workshop works -->
+  <details id="story" class="story narrow-wide" open>
+    <summary>Comment ça marche ? <span class="muted">L'histoire de l'atelier</span></summary>
+    <p class="story-intro">Il était une fois une famille qui, chaque année à l'approche de Noël, s'emmêlait
+    dans ses listes. Trois écharpes pour Papi, rien pour Tata, et des fous rires au moment d'ouvrir les paquets…
+    Alors les lutins ont construit ce petit atelier magique.</p>
+    <ol class="story-steps">
+      <li><span class="step-ico" aria-hidden="true">✉️</span><div><strong>Écris ta lettre.</strong>
+        Dans « Ma lettre », ajoute les cadeaux dont tu rêves : le nom, le lien vers la boutique, le prix et une photo.</div></li>
+      <li><span class="step-ico" aria-hidden="true">🧝</span><div><strong>Deviens lutin.</strong>
+        Dans « La famille », choisis un cadeau et touche « Je l'offre ! ». Il est aussitôt réservé
+        pour toi et disparaît pour les autres lutins : plus jamais de doublon.</div></li>
+      <li><span class="step-ico" aria-hidden="true">🤫</span><div><strong>Le secret est gardé.</strong>
+        Le Père Noël ne dévoile jamais ses secrets : sur ta propre lettre, tu ne verras jamais qui t'offre quoi.</div></li>
+      <li><span class="step-ico" aria-hidden="true">🛷</span><div><strong>Remplis ta hotte.</strong>
+        « Ma hotte » rassemble les cadeaux que tu as promis d'offrir, avec le budget total à prévoir.</div></li>
+    </ol>
+  </details>
+
   <!-- Step 0: pick who you are -->
   <section id="login" class="card narrow" hidden>
-    <h2>Who are you?</h2>
-    <p class="muted">Pick your name so the family knows whose list is whose.</p>
+    <h2>Qui es-tu, petit lutin ?</h2>
+    <p class="muted">Choisis ton prénom pour entrer dans l'atelier.</p>
     <div id="member-buttons" class="member-buttons"></div>
     <form id="new-member-form" class="row">
-      <input id="new-member-name" placeholder="Or add your name" maxlength="40" required />
-      <button type="submit">Join</button>
+      <input id="new-member-name" placeholder="Ou ajoute ton prénom" maxlength="40" required />
+      <button type="submit">Entrer</button>
     </form>
   </section>
 
   <main id="app" hidden>
     <nav class="tabs">
-      <button class="tab active" data-view="mine">My lists</button>
-      <button class="tab" data-view="family">Family lists</button>
-      <button class="tab" data-view="gifting">My gifts to buy <span id="gifting-count" class="pill">0</span></button>
+      <button class="tab active" data-view="mine">✉️ Ma lettre</button>
+      <button class="tab" data-view="family">🧝 La famille</button>
+      <button class="tab" data-view="gifting">🛷 Ma hotte <span id="gifting-count" class="pill">0</span></button>
     </nav>
 
     <section id="view-mine" class="view"></section>
@@ -42,24 +64,24 @@
 
   <dialog id="item-dialog">
     <form id="item-form" method="dialog">
-      <h3 id="item-dialog-title">Add a gift</h3>
-      <label>Gift <input name="title" required maxlength="120" placeholder="e.g. Noise-cancelling headphones" /></label>
-      <label>Link <input name="link" type="url" placeholder="https://…" /></label>
-      <label>Price <input name="price" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+      <h3 id="item-dialog-title">Ajouter un cadeau</h3>
+      <label>Cadeau <input name="title" required maxlength="120" placeholder="ex. Un casque à réduction de bruit" /></label>
+      <label>Lien vers la boutique <input name="link" type="url" placeholder="https://…" /></label>
+      <label>Prix (€) <input name="price" type="number" min="0" step="0.01" placeholder="0.00" /></label>
       <fieldset class="photo-field">
-        <legend>Picture (optional)</legend>
+        <legend>Photo (facultatif)</legend>
         <div id="photo-preview" class="photo-preview" hidden>
-          <img alt="Picture of the gift" />
-          <button type="button" class="link danger" id="photo-remove">Remove picture</button>
+          <img alt="Photo du cadeau" />
+          <button type="button" class="link danger" id="photo-remove">Retirer la photo</button>
         </div>
-        <button type="button" class="secondary" id="photo-find">Find picture from link</button>
-        <label class="file-btn">Upload a photo or screenshot <input name="photo" id="photo-input" type="file" accept="image/*" /></label>
-        <label>Or paste a picture link <input name="imageUrl" id="image-url" type="url" placeholder="https://…/photo.jpg" /></label>
+        <button type="button" class="secondary" id="photo-find">Trouver la photo depuis le lien</button>
+        <label class="file-btn">Envoyer une photo ou une capture d'écran <input name="photo" id="photo-input" type="file" accept="image/*" /></label>
+        <label>Ou coller le lien d'une image <input name="imageUrl" id="image-url" type="url" placeholder="https://…/photo.jpg" /></label>
       </fieldset>
-      <label>Notes <textarea name="notes" rows="2" maxlength="300" placeholder="Size, colour, any option is fine…"></textarea></label>
+      <label>Précisions <textarea name="notes" rows="2" maxlength="300" placeholder="Taille, couleur, « n'importe quel modèle »…"></textarea></label>
       <div class="row end">
-        <button type="button" class="secondary" id="item-cancel">Cancel</button>
-        <button type="submit" value="save">Save</button>
+        <button type="button" class="secondary" id="item-cancel">Annuler</button>
+        <button type="submit" value="save">Enregistrer</button>
       </div>
     </form>
   </dialog>
@@ -69,7 +91,7 @@
       <h3 id="ask-title"></h3>
       <input id="ask-input" maxlength="60" hidden />
       <div class="row end">
-        <button value="cancel" class="secondary" formnovalidate>Cancel</button>
+        <button value="cancel" class="secondary" formnovalidate>Annuler</button>
         <button value="ok" id="ask-ok">OK</button>
       </div>
     </form>
