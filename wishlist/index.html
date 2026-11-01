@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Family Wishlists</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>🎁 Family Wishlists</h1>
+    <div id="whoami" class="whoami" hidden>
+      <span>Signed in as <strong id="whoami-name"></strong></span>
+      <button id="switch-user" class="link">Switch</button>
+    </div>
+  </header>
+
+  <div id="mode-banner" class="banner" hidden></div>
+
+  <!-- Step 0: pick who you are -->
+  <section id="login" class="card narrow" hidden>
+    <h2>Who are you?</h2>
+    <p class="muted">Pick your name so the family knows whose list is whose.</p>
+    <div id="member-buttons" class="member-buttons"></div>
+    <form id="new-member-form" class="row">
+      <input id="new-member-name" placeholder="Or add your name" maxlength="40" required />
+      <button type="submit">Join</button>
+    </form>
+  </section>
+
+  <main id="app" hidden>
+    <nav class="tabs">
+      <button class="tab active" data-view="mine">My lists</button>
+      <button class="tab" data-view="family">Family lists</button>
+      <button class="tab" data-view="gifting">My gifts to buy <span id="gifting-count" class="pill">0</span></button>
+    </nav>
+
+    <section id="view-mine" class="view"></section>
+    <section id="view-family" class="view" hidden></section>
+    <section id="view-gifting" class="view" hidden></section>
+  </main>
+
+  <dialog id="item-dialog">
+    <form id="item-form" method="dialog">
+      <h3 id="item-dialog-title">Add a gift</h3>
+      <label>Gift <input name="title" required maxlength="120" placeholder="e.g. Noise-cancelling headphones" /></label>
+      <label>Link <input name="link" type="url" placeholder="https://…" /></label>
+      <label>Price <input name="price" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+      <label>Notes <textarea name="notes" rows="2" maxlength="300" placeholder="Size, colour, any option is fine…"></textarea></label>
+      <div class="row end">
+        <button type="button" class="secondary" id="item-cancel">Cancel</button>
+        <button type="submit" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
