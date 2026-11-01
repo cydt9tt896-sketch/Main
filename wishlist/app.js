@@ -95,10 +95,18 @@ function renderMine() {
     </form>`;
 }
 
+const safeImg = (u) => (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(u || "") || /^https:\/\//i.test(u || "") ? u : "");
+const thumbTile = (title) => `<div class="thumb tile" aria-hidden="true">${esc((title || "?").trim().charAt(0).toUpperCase())}</div>`;
+
 function itemInfo(it) {
   const url = safeUrl(it.link);
   const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)} ↗</a>` : esc(it.title);
+  const img = safeImg(it.image);
+  const thumb = img
+    ? `<img class="thumb" src="${esc(img)}" alt="" loading="lazy" data-title="${esc(it.title)}" />`
+    : thumbTile(it.title);
   return `
+    ${url ? `<a class="thumb-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" tabindex="-1">${thumb}</a>` : thumb}
     <div class="info">
       <div class="title">${title}</div>
       ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ""}
@@ -185,6 +193,36 @@ function ask({ title, input, ok = "OK" }) {
   });
 }
 
+// Shrink a picked photo so it stays small enough to store with the gift.
+function resizeImage(file, max = 480) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Not an image")); };
+    img.src = url;
+  });
+}
+
+let pendingImage = ""; // picture shown in the gift dialog
+function showDialogImage(src) {
+  pendingImage = src || "";
+  const prev = $("#photo-preview");
+  prev.hidden = !pendingImage;
+  if (pendingImage) prev.querySelector("img").src = pendingImage;
+}
+
 function openItemDialog(listId, itemId) {
   editing = { listId, itemId };
   const f = $("#item-form");
@@ -193,16 +231,25 @@ function openItemDialog(listId, itemId) {
   f.elements.link.value = it.link || "";
   f.elements.price.value = it.price ?? "";
   f.elements.notes.value = it.notes || "";
+  f.elements.photo.value = "";
+  f.elements.imageUrl.value = it.image && !it.image.startsWith("data:") ? it.image : "";
+  showDialogImage(it.image);
   $("#item-dialog-title").textContent = itemId ? "Edit gift" : "Add a gift";
   $("#item-dialog").showModal();
   f.elements.title.focus();
 }
 
 document.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-action], .tab, #switch-user, #item-cancel");
+  const btn = e.target.closest("[data-action], .tab, #switch-user, #item-cancel, #photo-remove");
   if (!btn) return;
   if (btn.classList.contains("tab")) { view = btn.dataset.view; return render(); }
   if (btn.id === "switch-user") { me = null; safeSet(ME_KEY, null); return render(); }
+  if (btn.id === "photo-remove") {
+    showDialogImage("");
+    $("#item-form").elements.photo.value = "";
+    $("#item-form").elements.imageUrl.value = "";
+    return;
+  }
   if (btn.id === "item-cancel") { editing = null; return $("#item-dialog").close(); }
 
   const { action, list, item, name } = btn.dataset;
@@ -228,6 +275,25 @@ document.addEventListener("click", (e) => {
   }
 });
 
+document.addEventListener("change", async (e) => {
+  if (e.target.name === "photo" && e.target.files?.[0]) {
+    try {
+      showDialogImage(await resizeImage(e.target.files[0]));
+      e.target.form.elements.imageUrl.value = "";
+    } catch { toast("That file isn't a picture we can read. Try a JPG or PNG."); }
+  } else if (e.target.name === "imageUrl") {
+    const v = e.target.value.trim();
+    if (!v || safeImg(v)) showDialogImage(v);
+    else toast("Paste a link that starts with https://");
+  }
+});
+
+// A picture link that fails to load falls back to the letter tile.
+document.addEventListener("error", (e) => {
+  const img = e.target;
+  if (img.tagName === "IMG" && img.classList.contains("thumb")) img.outerHTML = thumbTile(img.dataset.title);
+}, true);
+
 document.addEventListener("submit", (e) => {
   const f = e.target;
   if (f.id === "new-member-form") {
@@ -252,6 +318,7 @@ document.addEventListener("submit", (e) => {
       link: f.elements.link.value.trim(),
       price: f.elements.price.value === "" ? "" : Number(f.elements.price.value),
       notes: f.elements.notes.value.trim(),
+      image: safeImg(pendingImage),
     };
     const { listId, itemId } = editing || {};
     $("#item-dialog").close();
