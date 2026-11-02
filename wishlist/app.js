@@ -36,6 +36,43 @@ const memberNames = () => {
 const byCreated = (a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0);
 const listsOf = (owner) => Object.entries(state.lists).filter(([, l]) => l.owner === owner).sort(byCreated);
 const itemsOf = (listId) => Object.entries(state.items).filter(([, i]) => i.listId === listId).sort(byCreated);
+// Themes a gift can be tagged with. Keys are stored; labels are shown.
+const THEMES = [
+  ["sport", "⚽ Sport"], ["tech", "💻 Tech"], ["culture", "📚 Culture"], ["beaute", "💄 Beauté"],
+  ["mode", "👕 Mode"], ["maison", "🏠 Maison"], ["voyage", "✈️ Voyage"], ["gourmand", "🍫 Gourmand"],
+  ["jeux", "🎲 Jeux"], ["experience", "🎟️ Expérience"],
+];
+const THEME_LABEL = Object.fromEntries(THEMES);
+const SORTS = [
+  ["added", "Ordre d'ajout"], ["price-asc", "Prix croissant"], ["price-desc", "Prix décroissant"],
+  ["az", "Nom A → Z"], ["za", "Nom Z → A"],
+];
+let sortBy = safeGet("wishlist:sort") || "added";
+let themeFilter = "";
+const hasPrice = (it) => it.price !== "" && it.price != null && !isNaN(it.price);
+function sortItems(entries) {
+  const cmpName = (a, b) => (a[1].title || "").localeCompare(b[1].title || "", "fr", { sensitivity: "base" });
+  const cmpPrice = (dir) => (a, b) => {
+    const pa = hasPrice(a[1]), pb = hasPrice(b[1]);
+    if (pa !== pb) return pa ? -1 : 1; // gifts without a price go last
+    return pa ? dir * (Number(a[1].price) - Number(b[1].price)) || cmpName(a, b) : cmpName(a, b);
+  };
+  const cmp = { "price-asc": cmpPrice(1), "price-desc": cmpPrice(-1), az: cmpName, za: (a, b) => cmpName(b, a) }[sortBy];
+  return cmp ? [...entries].sort(cmp) : entries;
+}
+const shownItems = (listId) => sortItems(itemsOf(listId).filter(([, it]) => !themeFilter || (it.tags || []).includes(themeFilter)));
+const tagChips = (tags = []) => tags.filter((t) => THEME_LABEL[t]).map((t) => `<span class="tag theme">${THEME_LABEL[t]}</span>`).join("");
+function renderTools() {
+  const tools = $("#list-tools");
+  tools.hidden = view === "gifting";
+  const sel = $("#sort-select");
+  if (!sel.options.length) {
+    sel.innerHTML = SORTS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
+    $("#theme-select").innerHTML = `<option value="">Tous les thèmes</option>` + THEMES.map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
+  }
+  sel.value = sortBy;
+  $("#theme-select").value = themeFilter;
+}
 const sameName = (a, b) => a?.trim().toLowerCase() === b?.trim().toLowerCase();
 
 // ------------------------------------------------------------------- render
@@ -70,6 +107,7 @@ function render() {
   for (const v of ["mine", "family", "gifting"]) $(`#view-${v}`).hidden = v !== view;
   const mine = Object.entries(state.claims).filter(([id, c]) => c.by === me && state.items[id]);
   $("#gifting-count").textContent = mine.length;
+  renderTools();
   if (view === "mine") renderMine();
   if (view === "family") renderFamily();
   if (view === "gifting") renderGifting(mine);
@@ -99,14 +137,14 @@ function renderMine() {
           </div>
         </div>
         <ul class="items">
-          ${itemsOf(id).map(([itemId, it]) => `
+          ${shownItems(id).map(([itemId, it]) => `
             <li class="item">
               ${itemInfo(it)}
               <div class="actions">
                 <button class="link" data-action="edit-item" data-list="${id}" data-item="${itemId}">Modifier</button>
                 <button class="link danger" data-action="delete-item" data-item="${itemId}">Retirer</button>
               </div>
-            </li>`).join("") || `<li class="empty">Aucun cadeau pour l'instant. Ajoute ton premier vœu !</li>`}
+            </li>`).join("") || `<li class="empty">${themeFilter && itemsOf(id).length ? "Aucun cadeau dans ce thème." : "Aucun cadeau pour l'instant. Ajoute ton premier vœu !"}</li>`}
         </ul>
         <button data-action="add-item" data-list="${id}">+ Ajouter un cadeau</button>
       </article>`).join("")}
@@ -132,6 +170,7 @@ function itemInfo(it) {
     <div class="info">
       <div class="title">${title}</div>
       ${it.notes ? `<div class="notes">${esc(it.notes)}</div>` : ""}
+      ${it.tags?.length ? `<div class="themes">${tagChips(it.tags)}</div>` : ""}
     </div>
     <div class="price">${fmtPrice(it.price)}</div>`;
 }
@@ -139,8 +178,9 @@ function itemInfo(it) {
 function renderFamily() {
   const owners = memberNames().filter((n) => !sameName(n, me));
   const blocks = owners.flatMap((owner) => listsOf(owner).map(([id, l]) => {
-    const items = itemsOf(id);
-    const open = items.filter(([itemId]) => !state.claims[itemId]).length;
+    const all = itemsOf(id);
+    const items = shownItems(id);
+    const open = all.filter(([itemId]) => !state.claims[itemId]).length;
     return `
       <article class="card">
         <div class="list-head">
@@ -149,7 +189,7 @@ function renderFamily() {
             <span class="tag">${esc(owner)}</span>
             ${l.occasion ? `<span class="tag">${esc(l.occasion)}</span>` : ""}
           </div>
-          <span class="muted">${open} sur ${items.length} encore ${open > 1 ? "disponibles" : "disponible"}</span>
+          <span class="muted">${open} sur ${all.length} encore ${open > 1 ? "disponibles" : "disponible"}</span>
         </div>
         <ul class="items">
           ${items.map(([itemId, it]) => {
@@ -165,7 +205,7 @@ function renderFamily() {
                   ? `<span class="status ok">🎁 C'est toi qui l'offres</span><button class="link" data-action="unclaim" data-item="${itemId}">Libérer</button>`
                   : `<span class="status">Déjà réservé par ${esc(c.by)}</span>`;
             return `<li class="${cls}">${itemInfo(it)}<div class="actions">${action}</div></li>`;
-          }).join("") || `<li class="empty">Rien sur cette lettre pour l'instant.</li>`}
+          }).join("") || `<li class="empty">${themeFilter && all.length ? "Aucun cadeau dans ce thème." : "Rien sur cette lettre pour l'instant."}</li>`}
         </ul>
       </article>`;
   }));
@@ -381,6 +421,8 @@ function openItemDialog(listId, itemId) {
   f.elements.link.value = it.link || "";
   f.elements.price.value = it.price ?? "";
   f.elements.notes.value = it.notes || "";
+  const tags = it.tags || [];
+  f.querySelectorAll('input[name="tag"]').forEach((c) => { c.checked = tags.includes(c.value); });
   f.elements.photo.value = "";
   f.elements.imageUrl.value = it.image && !it.image.startsWith("data:") ? it.image : "";
   showDialogImage(it.image);
@@ -451,6 +493,8 @@ document.addEventListener("paste", (e) => {
 });
 
 document.addEventListener("change", async (e) => {
+  if (e.target.id === "sort-select") { sortBy = e.target.value; safeSet("wishlist:sort", sortBy); return render(); }
+  if (e.target.id === "theme-select") { themeFilter = e.target.value; return render(); }
   if (e.target.name === "link" && e.target.form?.id === "item-form") { fillFromLink(); return; }
   if (e.target.name === "photo" && e.target.files?.[0]) {
     try {
@@ -494,6 +538,7 @@ document.addEventListener("submit", (e) => {
       link: f.elements.link.value.trim(),
       price: f.elements.price.value === "" ? "" : Number(f.elements.price.value),
       notes: f.elements.notes.value.trim(),
+      tags: [...f.querySelectorAll('input[name="tag"]:checked')].map((c) => c.value),
       image: safeImg(pendingImage),
       ...(imageRemoved && !pendingImage ? { imageTried: true } : {}),
     };
@@ -534,6 +579,7 @@ document.addEventListener("submit", (e) => {
   }
   store.subscribe((s) => { state = s; render(); });
   await translateOriginalGifts();
+  await tagOriginalGifts();
   fillMissingPictures();
 })();
 
@@ -565,5 +611,22 @@ async function fillMissingPictures() {
     if (img === null) return; // offline or blocked: try again next visit
     const it = state.items[id];
     if (it && !it.image) await store.updateItem(id, img ? { image: img } : { imageTried: true }).catch(() => {});
+  }
+}
+
+// One-time themes for Simon's original gifts. Only gifts that have never had
+// themes set (no tags field at all) are touched.
+const ORIGINAL_TAGS = [
+  [/^Tenue de golf/, ["sport", "mode"]], [/^Un ordinateur/, ["tech"]], [/^Apple Pencil/, ["tech"]],
+  [/^Parfum Horace/, ["beaute"]], [/^Soins pour la peau Horace/, ["beaute"]], [/^Catalogue de l'exposition/, ["culture"]],
+  [/^Baskets On ou Nike/, ["sport", "mode"]], [/^Chaussures Paraboot/, ["mode"]], [/^Bottines R\.M\. Williams/, ["mode"]],
+  [/^Mocassins Sebago/, ["mode"]], [/^Tenue de voyage Lululemon/, ["mode", "voyage"]], [/^Guide Monocle/, ["culture", "voyage"]],
+  [/^Apple Watch/, ["tech", "sport"]], [/^Abonnement WHOOP/, ["tech", "sport"]], [/en 100 questions/, ["culture"]],
+];
+async function tagOriginalGifts() {
+  for (const [id, it] of Object.entries(state.items)) {
+    if (it.tags !== undefined) continue;
+    const hit = ORIGINAL_TAGS.find(([re]) => re.test(it.title || ""));
+    if (hit) await store.updateItem(id, { tags: hit[1] }).catch(() => {});
   }
 }
