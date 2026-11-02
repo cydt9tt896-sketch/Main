@@ -57,6 +57,11 @@
       <button class="tab" data-view="gifting">🛷 Ma hotte <span id="gifting-count" class="pill">0</span></button>
     </nav>
 
+    <div id="list-tools" class="list-tools">
+      <label>Trier <select id="sort-select"></select></label>
+      <label>Thème <select id="theme-select"></select></label>
+    </div>
+
     <section id="view-mine" class="view"></section>
     <section id="view-family" class="view" hidden></section>
     <section id="view-gifting" class="view" hidden></section>
@@ -78,6 +83,21 @@
         <button type="button" class="secondary" id="photo-find">✨ Remplir photo et prix depuis le lien</button>
         <label class="file-btn">Envoyer une photo ou une capture d'écran <input name="photo" id="photo-input" type="file" accept="image/*" /></label>
         <label>Ou coller le lien d'une image <input name="imageUrl" id="image-url" type="url" placeholder="https://…/photo.jpg" /></label>
+      </fieldset>
+      <fieldset class="theme-field">
+        <legend>Thèmes (facultatif)</legend>
+        <div class="chips">
+          <label class="chip"><input type="checkbox" name="tag" value="sport" /><span>⚽ Sport</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="tech" /><span>💻 Tech</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="culture" /><span>📚 Culture</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="beaute" /><span>💄 Beauté</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="mode" /><span>👕 Mode</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="maison" /><span>🏠 Maison</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="voyage" /><span>✈️ Voyage</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="gourmand" /><span>🍫 Gourmand</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="jeux" /><span>🎲 Jeux</span></label>
+          <label class="chip"><input type="checkbox" name="tag" value="experience" /><span>🎟️ Expérience</span></label>
+        </div>
       </fieldset>
       <label>Précisions <textarea name="notes" rows="2" maxlength="300" placeholder="Taille, couleur, « n'importe quel modèle »…"></textarea></label>
       <div class="row end">
