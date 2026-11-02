@@ -258,27 +258,6 @@ function ask({ title, input, ok = "OK" }) {
   });
 }
 
-// Shrink a picked photo so it stays small enough to store with the gift.
-function resizeImage(file, max = 480) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      const c = document.createElement("canvas");
-      c.width = Math.round(img.width * scale);
-      c.height = Math.round(img.height * scale);
-      const ctx = c.getContext("2d");
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      resolve(c.toDataURL("image/jpeg", 0.8));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Pas une image")); };
-    img.src = url;
-  });
-}
 
 // Read a shop's product page through Microlink's free link-preview API (no
 // key, about 50 lookups a day): its main picture, its name and, when the shop
@@ -380,51 +359,6 @@ function showDialogImage(src) {
   if (pendingImage) prev.querySelector("img").src = pendingImage;
 }
 
-function setFillStatus(msg) {
-  const el = $("#fill-status");
-  if (el) { el.textContent = msg; el.hidden = !msg; }
-}
-
-// Fill the gift form from its shop link: picture, price and name.
-// Only empty fields are filled, unless the person asked explicitly (force).
-let fillSeq = 0;
-async function fillFromLink({ force = false } = {}) {
-  const f = $("#item-form");
-  const link = f.elements.link.value.trim();
-  if (!safeUrl(link)) {
-    if (force) toast("Colle d'abord le lien de la page du produit.");
-    return;
-  }
-  const seq = ++fillSeq;
-  const btn = $("#photo-find");
-  btn.disabled = true;
-  setFillStatus("🔎 Les lutins lisent la page du produit…");
-  const info = await fetchLinkInfo(link);
-  if (seq !== fillSeq) return; // a newer lookup started
-  btn.disabled = false;
-  if (info.error) {
-    setFillStatus({
-      quota: "Les lutins ont lu trop de pages aujourd'hui (limite gratuite atteinte). Réessaie demain, ou ajoute la photo et le prix à la main.",
-      blocked: "Cette boutique empêche la lecture automatique de sa page. Ajoute la photo et le prix à la main.",
-      network: "Impossible de joindre le service de lecture. Vérifie ta connexion et réessaie.",
-    }[info.error]);
-    return;
-  }
-  const got = [];
-  if (info.image && (force || (!pendingImage && !imageRemoved))) {
-    showDialogImage(info.image); imageRemoved = false; got.push("la photo");
-  }
-  if (info.price && (force || f.elements.price.value === "")) {
-    f.elements.price.value = info.price; got.push("le prix");
-  }
-  if (info.title && !f.elements.title.value.trim()) {
-    f.elements.title.value = info.title.slice(0, 120); got.push("le nom");
-  }
-  setFillStatus(got.length
-    ? `✨ Trouvé : ${got.join(", ")}. Vérifie avant d'enregistrer.`
-    : "Cette boutique ne partage pas ses infos. Ajoute la photo et le prix à la main.");
-}
-
 function openItemDialog(listId, itemId) {
   editing = { listId, itemId };
   const f = $("#item-form");
@@ -435,29 +369,22 @@ function openItemDialog(listId, itemId) {
   f.elements.notes.value = it.notes || "";
   const tags = it.tags || [];
   f.querySelectorAll('input[name="tag"]').forEach((c) => { c.checked = tags.includes(c.value); });
-  f.elements.photo.value = "";
   f.elements.imageUrl.value = it.image && !it.image.startsWith("data:") ? it.image : "";
   showDialogImage(it.image);
   imageRemoved = false;
-  setFillStatus("");
   $("#item-dialog-title").textContent = itemId ? "Modifier le cadeau" : "Ajouter un cadeau";
   $("#item-dialog").showModal();
-  (itemId ? f.elements.title : f.elements.link).focus();
+  f.elements.title.focus();
 }
 
 document.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-action], .tab, #switch-user, #item-cancel, #photo-remove, #photo-find");
+  const btn = e.target.closest("[data-action], .tab, #switch-user, #item-cancel, #photo-remove");
   if (!btn) return;
   if (btn.classList.contains("tab")) { view = btn.dataset.view; return render(); }
   if (btn.id === "switch-user") { me = null; safeSet(ME_KEY, null); return render(); }
-  if (btn.id === "photo-find") {
-    fillFromLink({ force: true });
-    return;
-  }
   if (btn.id === "photo-remove") {
     imageRemoved = true;
     showDialogImage("");
-    $("#item-form").elements.photo.value = "";
     $("#item-form").elements.imageUrl.value = "";
     return;
   }
@@ -499,21 +426,15 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// Pasting a shop link fills the form straight away.
-document.addEventListener("paste", (e) => {
-  if (e.target.name === "link" && e.target.form?.id === "item-form") setTimeout(() => fillFromLink(), 0);
+
+document.addEventListener("input", (e) => {
+  if (e.target.name === "imageUrl" && safeImg(e.target.value.trim())) showDialogImage(e.target.value.trim());
 });
 
 document.addEventListener("change", async (e) => {
   if (e.target.id === "sort-select") { sortBy = e.target.value; safeSet("wishlist:sort", sortBy); return render(); }
   if (e.target.id === "theme-select") { themeFilter = e.target.value; return render(); }
-  if (e.target.name === "link" && e.target.form?.id === "item-form") { fillFromLink(); return; }
-  if (e.target.name === "photo" && e.target.files?.[0]) {
-    try {
-      showDialogImage(await resizeImage(e.target.files[0]));
-      e.target.form.elements.imageUrl.value = "";
-    } catch { toast("Ce fichier n'est pas une image lisible. Essaie un JPG ou un PNG."); }
-  } else if (e.target.name === "imageUrl") {
+  if (e.target.name === "imageUrl") {
     const v = e.target.value.trim();
     if (!v || safeImg(v)) showDialogImage(v);
     else toast("Colle un lien qui commence par https://");
@@ -561,10 +482,6 @@ document.addEventListener("submit", (e) => {
     run(async () => {
       const id = itemId || (await store.addItem(listId, data));
       if (itemId) await store.updateItem(itemId, data);
-      if (!data.image && data.link && !data.imageTried) {
-        const img = await findImageForLink(data.link);
-        if (img && state.items[id] && !state.items[id].image) await store.updateItem(id, { image: img });
-      }
     });
   }
 });

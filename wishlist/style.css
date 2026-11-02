@@ -182,7 +182,7 @@ button { touch-action: manipulation; }
 }
 
 .fill-status { margin: -4px 0 10px; font-size: .85rem; color: var(--muted); }
-#photo-find { margin-bottom: 8px; }
+.hint { margin: -4px 0 0; font-size: .8rem; color: var(--muted); }
 
 /* Sorting, filtering and themes */
 .list-tools { display: flex; gap: 12px; flex-wrap: wrap; margin: -4px 0 12px; }
