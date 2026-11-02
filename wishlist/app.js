@@ -343,24 +343,32 @@ function productFromJsonLd(blocks) {
   return found;
 }
 
+// Returns { image, price, title } or { error } where error is "quota"
+// (Microlink's free daily limit is used up), "blocked" (the shop refused to
+// be read) or "network".
 async function fetchLinkInfo(link) {
   if (!safeUrl(link)) return { image: "", price: null, title: "" };
   try {
     const res = await fetch(microlinkUrl(link));
-    if (res.status === 429) return null; // daily free quota used up
-    const json = await res.json();
-    const d = json?.data || {};
+    if (res.status === 429) return { error: "quota" };
+    const json = await res.json().catch(() => ({}));
+    if (json?.status !== "success") {
+      console.warn("Microlink", res.status, json?.code, json?.message);
+      return { error: /RATE|LIMIT|QUOTA/i.test(json?.code || "") ? "quota" : "blocked" };
+    }
+    const d = json.data || {};
     const ld = productFromJsonLd(d.jsonld);
     const price = ld.price ?? parsePrice(d.ogprice) ?? parsePrice(d.ogprice2) ?? parsePrice(d.itemprice) ?? parsePrice(d.itempricetext);
     const image = ld.image || d.image?.url || d.logo?.url || "";
     const title = (ld.name || d.title || "").trim();
     return { image: /^https:\/\//i.test(image) ? image : "", price, title };
-  } catch { return null; }
+  } catch (e) { console.warn("Microlink", e); return { error: "network" }; }
 }
 
 async function findImageForLink(link) {
   const info = await fetchLinkInfo(link);
-  return info === null ? null : info.image;
+  if (info.error === "blocked") return ""; // this shop can't be read: don't retry
+  return info.error ? null : info.image;
 }
 
 let pendingImage = ""; // picture shown in the gift dialog
@@ -394,8 +402,12 @@ async function fillFromLink({ force = false } = {}) {
   const info = await fetchLinkInfo(link);
   if (seq !== fillSeq) return; // a newer lookup started
   btn.disabled = false;
-  if (!info) {
-    setFillStatus("Impossible de lire cette page pour l'instant. Ajoute la photo et le prix à la main.");
+  if (info.error) {
+    setFillStatus({
+      quota: "Les lutins ont lu trop de pages aujourd'hui (limite gratuite atteinte). Réessaie demain, ou ajoute la photo et le prix à la main.",
+      blocked: "Cette boutique empêche la lecture automatique de sa page. Ajoute la photo et le prix à la main.",
+      network: "Impossible de joindre le service de lecture. Vérifie ta connexion et réessaie.",
+    }[info.error]);
     return;
   }
   const got = [];
@@ -605,7 +617,11 @@ async function translateOriginalGifts() {
 // Once per visit, look up pictures for gifts that have a shop link but no
 // picture yet. A gift is only tried once (imageTried), so this stays cheap.
 async function fillMissingPictures() {
-  const todo = Object.entries(state.items).filter(([, it]) => it.link && !it.image && !it.imageTried).slice(0, 20);
+  // Only my own gifts, a few per visit, so the free daily limit stays
+  // available for the "Remplir" button.
+  const todo = Object.entries(state.items)
+    .filter(([, it]) => it.link && !it.image && !it.imageTried && sameName(state.lists[it.listId]?.owner, me))
+    .slice(0, 5);
   for (const [id] of todo) {
     const img = await findImageForLink(state.items[id]?.link);
     if (img === null) return; // offline or blocked: try again next visit
